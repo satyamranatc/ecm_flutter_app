@@ -11,14 +11,18 @@ class ProductGrid extends StatefulWidget {
 
 class ProductGridState extends State<ProductGrid> {
   List<dynamic> _products = [];
+  List<dynamic> _filteredProducts = []; // Add filtered products list
   String _selectedCategory = 'All';
+  TextEditingController searchController = TextEditingController(); // Renamed from SC for clarity
+
   final List<String> _categories = [
     'All',
     'Electronics',
-    'Fashion',
-    'Home',
-    'Sports'
+    'Furniture',
+    'Shoes',
+    'Clothey'
   ];
+  
   @override
   void initState() {
     super.initState();
@@ -29,6 +33,35 @@ class ProductGridState extends State<ProductGrid> {
     var data = await fetchProducts();
     setState(() {
       _products = data ?? [];
+      _filteredProducts = _products; // Initialize filtered products
+    });
+  }
+
+  // Fixed search function
+  void search() {
+    String searchText = searchController.text.toLowerCase();
+    
+    setState(() {
+      // First filter by category
+      var categoryFiltered = _selectedCategory == 'All'
+          ? _products
+          : _products.where((product) => 
+              product['category']['name'] == _selectedCategory).toList();
+      
+      // Then filter by search text
+      _filteredProducts = searchText.isEmpty
+          ? categoryFiltered
+          : categoryFiltered.where((product) => 
+              product['title'].toString().toLowerCase().contains(searchText)).toList();
+    });
+  }
+
+  // Add category filter function
+  void filterByCategory(String category) {
+    setState(() {
+      _selectedCategory = category;
+      // Apply both category and search filters
+      search();
     });
   }
 
@@ -41,20 +74,27 @@ class ProductGridState extends State<ProductGrid> {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: GridView.builder(
-              physics: BouncingScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.55,
-              ),
-              itemCount: _products.length,
-              itemBuilder: (context, index) {
-                final product = _products[index];
-                return _buildProductCard(product, context);
-              },
-            ),
+            child: _filteredProducts.isEmpty
+                ? Center(
+                    child: Text(
+                      "No products found",
+                      style: TextStyle(fontSize: 16, color: Color(0xFF7F8C8D)),
+                    ),
+                  )
+                : GridView.builder(
+                    physics: BouncingScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 0.55,
+                    ),
+                    itemCount: _filteredProducts.length,
+                    itemBuilder: (context, index) {
+                      final product = _filteredProducts[index];
+                      return _buildProductCard(product, context);
+                    },
+                  ),
           ),
         ),
       ],
@@ -76,9 +116,7 @@ class ProductGridState extends State<ProductGrid> {
 
           return GestureDetector(
             onTap: () {
-              setState(() {
-                _selectedCategory = category;
-              });
+              filterByCategory(category); // Updated to use filter function
             },
             child: Container(
               margin: EdgeInsets.only(right: 12),
@@ -130,13 +168,27 @@ class ProductGridState extends State<ProductGrid> {
                 border: Border.all(color: Color(0xFFE0E0E0)),
               ),
               child: TextField(
+                controller: searchController,
                 decoration: InputDecoration(
                   hintText: 'Search products...',
                   hintStyle: TextStyle(color: Color(0xFF7F8C8D)),
                   prefixIcon: Icon(Icons.search, color: Color(0xFF7F8C8D)),
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.clear, color: Color(0xFF7F8C8D)),
+                    onPressed: () {
+                      searchController.clear();
+                      search(); // Apply search when cleared
+                    },
+                  ),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(vertical: 12),
                 ),
+                onChanged: (value) {
+                  search(); // Apply search on every change
+                },
+                onSubmitted: (value) {
+                  search(); // Apply search when submitted
+                },
               ),
             ),
           ),
